@@ -2,7 +2,6 @@
  Linux (POSIX) implementation of _kbhit().
  Morgan McGuire, morgan@cs.brown.edu
  */
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/ioctl.h>

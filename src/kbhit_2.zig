@@ -1,4 +1,5 @@
 const std = @import("std");
+const print = std.debug.print;
 const c_stdio = @cImport(@cInclude("stdio.h"));
 const posix = std.posix;
 
@@ -18,4 +19,10 @@ pub fn kbhit() !usize {
     _ = std.c.ioctl(stdin.handle, 0x541B, &bytesWaiting);
 
     return bytesWaiting;
+}
+
+pub fn main() !void {
+    while (true) {
+        print("{any}\n", .{kbhit()});
+    }
 }

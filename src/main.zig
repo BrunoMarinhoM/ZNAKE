@@ -143,6 +143,7 @@ pub fn main() !void {
 
     var snake_test = try Snake.init(allocator, 10, 10, 1, 0);
 
+    //initial size
     for (0..4) |_| {
         try snake_test.eat();
     }
@@ -156,13 +157,20 @@ pub fn main() !void {
     renderFood(cur, food_pos);
 
     // var last_hit_lagged: u8 = 0;
-
     game: while (running) {
         cur.clearScreen();
         snake_test.walk();
 
         for (snake_test.history_path.*.items[0 .. snake_test.history_path.*.items.len - 1]) |body_slice| {
             if (isEqlSlice(i16, body_slice, snake_test.head_pos)) {
+                cur.clearScreen();
+                const END_GAME_STR = "GAME OVER";
+                for (END_GAME_STR, 0..) |ch, ind| {
+                    const ind_i16: i16 = @intCast(ind);
+                    try cur.renderChar(ch, @ptrCast(@constCast(&[_]i16{ ind_i16 + @divFloor(cur.getScreenHeight() - @divFloor(END_GAME_STR.len, 2), 2), @intCast(@divFloor(cur.getScreenWidth(), 2)) })));
+                }
+                cur.updateFullScreen();
+                std.time.sleep(1000000000);
                 break :game;
             }
         }
