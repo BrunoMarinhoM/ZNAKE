@@ -19,10 +19,3 @@ pub fn kbhit() !usize {
 
     return bytesWaiting;
 }
-
-pub fn main() !void {
-    while (true) {
-        const hitted = try kbhit();
-        std.debug.print("{any}\n", .{hitted});
-    }
-}

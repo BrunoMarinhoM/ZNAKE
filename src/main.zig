@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const curses = @cImport(@cInclude("curses.h"));
+const curses = @import("./curses.zig");
 const kbhit = @import("./kbhit_2.zig");
 
 const Snake = struct {
@@ -46,15 +46,15 @@ const Snake = struct {
             self.history_path.*.items[ind][0] = self.history_path.*.items[ind + 1][0];
             self.history_path.*.items[ind][1] = self.history_path.*.items[ind + 1][1];
         }
-        self.history_path.*.items[self.history_path.*.items.len - 1][0] += self.head_speed[0];
-        self.history_path.*.items[self.history_path.*.items.len - 1][1] += self.head_speed[1];
+        self.history_path.*.items[self.history_path.*.items.len - 1][0] += self.head_speed[1];
+        self.history_path.*.items[self.history_path.*.items.len - 1][1] += self.head_speed[0];
     }
 
     pub fn eat(self: Self) !void {
         self.size.* = self.size.* + 1;
         const head_new_pos = try self.allocator.alloc(i16, 2);
-        head_new_pos[0] = self.history_path.*.items[0][0] - self.head_speed[0];
-        head_new_pos[1] = self.history_path.*.items[0][1] - self.head_speed[1];
+        head_new_pos[0] = self.history_path.*.items[0][0] - self.head_speed[1];
+        head_new_pos[1] = self.history_path.*.items[0][1] - self.head_speed[0];
 
         try self.history_path.insert(0, head_new_pos);
     }
@@ -73,34 +73,35 @@ const Snake = struct {
     }
 };
 
-pub fn renderSnake(s: *Snake, window: [*c]const curses.WINDOW) void {
-    const max_x: i16 = @intCast(curses.getmaxx(window));
-    const max_y: i16 = @intCast(curses.getmaxy(window));
+pub fn renderSnake(s: *Snake, cur: curses.Curses) void {
+    const max_x: i16 = @intCast(cur.getScreenWidth());
+    const max_y: i16 = @intCast(cur.getScreenHeight());
     if (s.head_pos[1] == max_x) {
         s.head_pos[1] = 0;
     } else if (s.head_pos[1] == -1) {
-        s.head_pos[1] = @intCast(curses.getmaxx(window) - 1);
+        s.head_pos[1] = @intCast(cur.getScreenWidth() - 1);
     }
 
     if (s.head_pos[0] == max_y) {
         s.head_pos[0] = 0;
     } else if (s.head_pos[0] == -1) {
-        s.head_pos[0] = @intCast(curses.getmaxy(window) - 1);
+        s.head_pos[0] = @intCast(cur.getScreenHeight() - 1);
     }
 
     for (s.history_path.*.items, 0..) |body_slice, ind| {
         const snake = "SNAKE|";
-        _ = curses.mvaddch(@intCast(body_slice[0]), @intCast(body_slice[1]), snake.*[@mod(ind, snake.len)]);
+        const place: []i16 = @constCast(&[_]i16{ @intCast(body_slice[0]), @intCast(body_slice[1]) });
+        try cur.renderChar(snake.*[@mod(ind, snake.len)], place);
     }
 }
 
-pub fn renderFood(pos: []i16) void {
-    _ = curses.mvaddch(pos[0], pos[1], "0".*[0]);
+pub fn renderFood(cur: curses.Curses, pos: []i16) void {
+    try cur.renderChar("0".*[0], pos);
 }
 
-pub fn spawnFood(window: [*c]const curses.WINDOW, buff: ?[]i16) ![]i16 {
-    const most_y: i16 = @intCast(curses.getmaxy(window));
-    const most_x: i16 = @intCast(curses.getmaxx(window));
+pub fn spawnFood(cur: curses.Curses, buff: ?[]i16) ![]i16 {
+    const most_y: i16 = @intCast(cur.getScreenHeight());
+    const most_x: i16 = @intCast(cur.getScreenWidth());
 
     if (buff) |buffer| {
         buffer[1] = std.crypto.random.intRangeAtMost(i16, 2, most_x);
@@ -134,14 +135,8 @@ pub fn isEqlSlice(T: type, a: []T, b: []T) bool {
 pub fn main() !void {
     // var hit_counter: u128 = 0;
 
-    // initializes screen, set curses.col, etc...
-    const screen = curses.initscr();
-
-    const kpad = curses.keypad(screen, true);
-
-    _ = kpad;
-
-    _ = curses.clear();
+    // initializes screen, set _curses.col, etc...
+    const cur = curses.Curses.init();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -154,93 +149,88 @@ pub fn main() !void {
 
     var running: bool = true;
 
-    renderSnake(&snake_test, screen);
+    renderSnake(&snake_test, cur);
 
-    const food_pos = try spawnFood(screen, null);
+    const food_pos = try spawnFood(cur, null);
 
-    renderFood(food_pos);
+    renderFood(cur, food_pos);
 
     // var last_hit_lagged: u8 = 0;
 
     game: while (running) {
-        _ = curses.clear();
-
+        cur.clearScreen();
         snake_test.walk();
 
         for (snake_test.history_path.*.items[0 .. snake_test.history_path.*.items.len - 1]) |body_slice| {
             if (isEqlSlice(i16, body_slice, snake_test.head_pos)) {
-                const posx = @divTrunc(curses.getmaxx(screen), 2);
-                const posy = @divTrunc(curses.getmaxy(screen), 2);
-                for ("YOU DIED".*, 0..) |ch, ind| {
-                    const _ind: c_int = @intCast(ind);
-                    _ = curses.mvaddch(posx + _ind, posy + _ind, ch);
-                }
-
-                _ = curses.refresh();
-                std.time.sleep(1000000000);
                 break :game;
             }
         }
 
         if (isEqlSlice(i16, snake_test.getHeadPosition(), food_pos)) {
             try snake_test.eat();
-            _ = try spawnFood(screen, food_pos);
-            renderFood(food_pos);
+            _ = try spawnFood(cur, food_pos);
+            renderFood(cur, food_pos);
         }
 
-        renderSnake(&snake_test, screen);
+        renderSnake(&snake_test, cur);
 
-        renderFood(food_pos);
+        renderFood(cur, food_pos);
 
-        if (snake_test.getSpeed()[1] == 0) std.time.sleep(100000000) else std.time.sleep(63000000);
+        if (snake_test.getSpeed()[0] == 0) std.time.sleep(65000000) else std.time.sleep(85000000);
 
-        _ = curses.refresh();
+        cur.updateFullScreen();
 
         const internal_hit_counter = try kbhit.kbhit();
 
         if (internal_hit_counter != 0) {
-            const key_pressed = curses.getch();
-            switch (key_pressed) {
-                curses.KEY_UP => {
+            const key_pressed = cur.getKeyPressedFreeze();
+            switch (key_pressed.event) {
+                .ArrowUp => {
                     if (snake_test.getSpeed()[1] != 0) {
                         snake_test.setSpeed(0, -1);
                     }
                 },
 
-                curses.KEY_DOWN => {
+                .ArrowDown => {
                     if (snake_test.getSpeed()[1] != 0) {
                         snake_test.setSpeed(0, 1);
                     }
                 },
 
-                curses.KEY_LEFT => {
+                .ArrowLeft => {
                     if (snake_test.getSpeed()[0] != 0) {
                         snake_test.setSpeed(-1, 0);
                     }
                 },
 
-                curses.KEY_RIGHT => {
+                .ArrowRight => {
                     if (snake_test.getSpeed()[0] != 0) {
                         snake_test.setSpeed(1, 0);
                     }
                 },
 
-                //esc
-                27 => {
-                    running = false;
-                },
+                .UnkownKey => {
+                    switch (key_pressed.code) {
+                        //esc
+                        27 => {
+                            running = false;
+                        },
 
-                //enter
-                10 => {
-                    _ = try spawnFood(screen, food_pos);
-                    renderFood(food_pos);
-                },
+                        //enter
+                        10 => {
+                            _ = try spawnFood(cur, food_pos);
+                            renderFood(cur, food_pos);
+                        },
 
-                else => {},
+                        else => {},
+                    }
+                },
             }
         }
     }
-    _ = curses.endwin();
+
+    cur.deinit();
 
     snake_test.deinit();
 
