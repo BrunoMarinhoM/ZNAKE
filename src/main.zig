@@ -13,7 +13,13 @@ const Snake = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, x_init: i16, y_init: i16, x_speed_init: i16, y_speed_init: i16) !Snake {
+    pub fn init(
+        allocator: std.mem.Allocator,
+        x_init: i16,
+        y_init: i16,
+        x_speed_init: i16,
+        y_speed_init: i16,
+    ) !Snake {
         const size = try allocator.create(usize);
         const head_pos = try allocator.alloc(i16, 2);
         const head_speed = try allocator.alloc(i16, 2);
@@ -97,6 +103,7 @@ pub fn renderSnake(s: *Snake, cur: curses.Curses) void {
 
 pub fn renderFood(cur: curses.Curses, pos: []i16) void {
     try cur.renderChar("0".*[0], pos);
+    try cur.renderChar("\r".*[0], @ptrCast(@constCast(&[_]i16{ 0, 0 })));
 }
 
 pub fn spawnFood(cur: curses.Curses, buff: ?[]i16) ![]i16 {
@@ -167,7 +174,10 @@ pub fn main() !void {
                 const END_GAME_STR = "GAME OVER";
                 for (END_GAME_STR, 0..) |ch, ind| {
                     const tmp: usize = @intCast(@divFloor(cur.getScreenHeight(), 2));
-                    try cur.renderChar(ch, @ptrCast(@constCast(&[_]i16{ @intCast(2 * ind + tmp - END_GAME_STR.len), @divFloor(cur.getScreenWidth(), 2) })));
+                    try cur.renderChar(ch, @ptrCast(@constCast(&[_]i16{
+                        @intCast(2 * ind + tmp - END_GAME_STR.len),
+                        @divFloor(cur.getScreenWidth(), 2),
+                    })));
                 }
                 cur.updateFullScreen();
                 std.time.sleep(1000000000);

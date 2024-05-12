@@ -10,13 +10,21 @@ pub fn kbhit() !usize {
 
     termios.lflag.ICANON = false;
 
-    try posix.tcsetattr(stdin.handle, .NOW, termios);
+    try posix.tcsetattr(
+        stdin.handle,
+        .NOW,
+        termios,
+    );
 
     _ = c_stdio.setbuf(c_stdio.stdin, 0);
 
     var bytesWaiting: usize = 0;
 
-    _ = std.c.ioctl(stdin.handle, 0x541B, &bytesWaiting);
+    _ = std.c.ioctl(
+        stdin.handle,
+        0x541B,
+        &bytesWaiting,
+    );
 
     return bytesWaiting;
 }

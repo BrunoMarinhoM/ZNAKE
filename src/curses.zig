@@ -51,6 +51,7 @@ pub const Curses = struct {
     pub fn renderChar(self: Self, char: u8, place: []i16) !void {
         _ = self;
         _ = _curses.mvaddch(@intCast(place[1]), @intCast(place[0]), char);
+        _ = _curses.mvcur(0, 0, 0, 0);
     }
 
     pub fn clearScreen(self: Self) void {
